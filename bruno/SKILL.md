@@ -21,9 +21,9 @@ disable-model-invocation: true
 
 若 `/bruno` 后面没带目标，先反问要生成哪个接口，不要自己挑一个。
 
-## 第零步：读取全局路径配置
+## 第零步：定位当前项目
 
-**本 skill 不写死任何绝对路径**，两个目录都从全局配置取：
+**本 skill 不写死任何绝对路径**，源码仓库与 Bruno 集合都从全局配置取。配置里可以有**任意多个**本地开发项目，每个项目成对登记：
 
 - 配置文件：全局 `~/.claude/CLAUDE.md`（Windows 为 `C:\Users\<用户名>\.claude\CLAUDE.md`）
 - 配置段：「项目路径（skill 通用配置）」，形如
@@ -31,31 +31,40 @@ disable-model-invocation: true
   ```markdown
   # 项目路径（skill 通用配置）
 
-  - 源码仓库根：C:\IT\project\<源码仓库>
-  - Bruno 集合根：C:\IT\project\<Bruno 集合目录>
+  - 学语项目地址：C:\IT\project\pptutor-cloud
+  - 学语Bruno地址：C:\IT\project\Bruno
+  - 单词项目地址：C:\IT\project\word-app
+  - 单词Bruno地址：C:\IT\project\Bruno-word
   ```
 
-| 配置项 | 记作 | 作用 |
+**解析规则**：条目名以 `项目地址` 结尾的是**源码根**，以 `Bruno地址` 结尾的是 **Bruno 集合根**；去掉后缀剩下的部分就是**项目名**，同名两项配成一对。每个项目有自己独立的 Bruno 集合，产出**只写进当前项目那个集合**，不要跨项目混写。
+
+| 概念 | 记作 | 作用 |
 |---|---|---|
-| **源码仓库根** | `$SOURCE_ROOT` | 找 Controller、解析 DTO（只读） |
-| **Bruno 集合根** | `$BRUNO_ROOT` | 生成 `.yml`，**恒定输出到这里**（写） |
+| 当前项目的源码仓库根 | `$SOURCE_ROOT` | 找 Controller、解析 DTO（只读） |
+| 当前项目的 Bruno 集合根 | `$BRUNO_ROOT` | 生成 `.yml`，**恒定输出到这里**（写） |
 
-取值顺序，先到先得：
+> 条目名既不以 `项目地址` 也不以 `Bruno地址` 结尾（如 `xxx项目路径`）→ 视为**可疑条目**，不要猜它属于哪一边，按下面第 5 条处理。
 
-1. 用户在本次 `/bruno` 里显式给了路径 → 以用户的为准，仅本次有效，**不要**改全局配置
-2. 全局 `CLAUDE.md` 里的「项目路径」段 → 用它
-3. 都没有 → **停下反问**用户要这两个路径，不要猜、不要回退到任何示例路径
+**怎么确定当前是哪个项目**，先到先得：
 
-> 全局 `CLAUDE.md` 的内容每轮对话都在上下文里，直接取用即可，不必额外读文件。内容里找不到「项目路径」段，即视为未配置，走第 3 条。
+1. 用户在本次 `/bruno` 里显式给了项目名或路径 → 以用户的为准，仅本次有效，**不要**改全局配置
+2. 当前工作目录落在某个源码根或 Bruno 集合根之下 → 就是那个项目
+3. 配置里**只有一对** → 直接用它
+4. 配置里**有多对**且 cwd 判不出来 → **停下反问**用哪个项目（把现有项目名列给用户挑），不要猜
+5. 一条都没有、只有半边（有源码根没 Bruno 根，或反之）、或全是可疑条目 → **停下反问**要缺的那部分路径，不要猜、不要回退到任何示例路径
+
+> 全局 `CLAUDE.md` 的内容每轮对话都在上下文里，直接取用即可，不必额外读文件。
 >
 > 后续步骤里出现 `$SOURCE_ROOT` / `$BRUNO_ROOT` 的地方，一律按这里取到的实际值展开。
 
-**源码仓库的定位**：当前工作目录若有 `pom.xml`，它就是 `$SOURCE_ROOT`；若没有（例如在 Bruno 目录里被调用），用配置里的「源码仓库根」。
+**源码仓库的定位**：当前工作目录若有 `pom.xml`，它就是 `$SOURCE_ROOT`（以 cwd 为准，优先于配置）。
 
 **在 bash 里拼路径**：配置里是 Windows 风格（`C:\...`），直接用会被反斜杠转义吃掉，先转成 POSIX 形式：
 
 ```bash
-BRUNO=$(cygpath -u '<Bruno 集合根的实际值>')   # C:\IT\project\X → /c/IT/project/X
+SOURCE=$(cygpath -u '<当前项目源码根的实际值>')
+BRUNO=$(cygpath -u '<当前项目 Bruno 集合根的实际值>')   # C:\IT\project\X → /c/IT/project/X
 ```
 
 ## 第一步：定位接口
@@ -84,7 +93,18 @@ BRUNO=$(cygpath -u '<Bruno 集合根的实际值>')   # C:\IT\project\X → /c/I
 
 ## 第二步：确定 URL 前缀
 
-接口路径前面要挂环境变量，**不能**写死域名。映射规则按 Controller 所在的 Maven 模块推（下表路径均相对 `$SOURCE_ROOT`）：
+接口路径前面要挂环境变量，**不能**写死域名。
+
+**通用流程**（任何项目都适用）：
+
+1. 找到 Controller 所在模块 → 读该模块的 `server.servlet.context-path`（在 `application*.yml` 里）。子模块（`*-research` / `*-common` 等）本身不启动服务，跳过它，改看依赖它的同域 `*-web` 模块。
+2. 读当前项目**那个** Bruno 集合的环境文件（`environments/*.bru`、`environments/*.yml`、`bruno.json`），按 **context-path 的尾部分**匹配变量名 —— 变量值通常已把 context-path 包含在内，如 `https://x/teaching-web` 对应 `{{teaching-url}}`。
+3. 匹配到 → 用它，URL 写成 `"{{xxx-url}}/业务路径"`，**不要再拼一次 context-path**。
+4. 匹配不到 → **停下反问**用户：「模块 `<MODULE>` 不在已知映射里，集合现有变量是 `<A/B/C>`，这个接口用哪个？」，不要自己编变量名。
+
+**已知项目速查表**（只有 pptutor-cloud 有，其他项目一律走上面的通用流程）：
+
+下表路径均相对该项目的 `$SOURCE_ROOT`。
 
 | 源码模块目录 | URL 变量 | 服务 context-path |
 |---|---|---|
@@ -93,9 +113,11 @@ BRUNO=$(cygpath -u '<Bruno 集合根的实际值>')   # C:\IT\project\X → /c/I
 | `pptutor-system/system-web`、`system-api`、`system-base`、`msg-notify`、`permission-auth`、`ticket-approval`、`call-center` | `{{system-url}}` | `/system-base` |
 | `pptutor-app/app-web` | 集合里没有变量 | context-path 为 `/` |
 
-**变量名以集合里的实际值为准。** 表里是常见约定；生成前扫一眼 `$BRUNO_ROOT` 下的环境文件（`environments/*.bru`、`environments/*.yml`、`bruno.json`）确认变量名真的存在，不存在就说明该服务在集合里还没有对应变量，按 `app-web` 那一行的方式处理并告知用户。
+**变量名以集合里的实际值为准。** 表里是常见约定；生成前仍要扫一眼集合的环境文件确认变量名真的存在，不存在就说明该服务在集合里还没有对应变量，按 `app-web` 那一行的方式处理并告知用户。
 
 **推导规则**：子模块（`*-research` / `*-common` / `msg-notify` 等）本身不启动服务，它们被同域的 `*-web` 依赖，所以 URL 变量取那个 `*-web` 的。环境变量值已经把 context-path 包含在内了 —— 例如测试环境 `teaching-url` = `https://test-api.mathplore.com/teaching-web`，所以 url 写成 `"{{teaching-url}}/attendance/clazz/page"` 就行，**不要再拼一次 `/teaching-web`**。
+
+下面两段（按模块判、读 pom 确认依赖）是**任何项目通用**的判据，不只对 pptutor-cloud 成立。
 
 > **按 Maven 模块判，不要按包名判。** 包路径里的业务域名词会骗人：
 >
@@ -109,8 +131,10 @@ BRUNO=$(cygpath -u '<Bruno 集合根的实际值>')   # C:\IT\project\X → /c/I
 拿不准 `*-web` 是不是真的依赖了那个子模块，读 `*-web/pom.xml` 确认：
 
 ```bash
-grep -A2 "artifactId>$MODULE" "$SOURCE_ROOT/pptutor-teaching/teaching-web/pom.xml"
+grep -A2 "artifactId>$MODULE" "$SOURCE_ROOT/<候选 web 模块>/pom.xml"
 ```
+
+> 上面的 `pptutor-teaching/teaching-web` 只是示例，换成当前项目实际的 web 模块路径。
 
 ## 第三步：解析参数
 
@@ -248,17 +272,17 @@ settings:
 
 ### seq 与落盘位置
 
-`seq` 取**整个集合当前的全局最大 seq + 1**（`$BRUNO_ROOT` 按第零步取值，bash 里先 `cd` 过去或用 `cygpath` 转换）：
+`seq` 取**当前项目集合当前的全局最大 seq + 1**（`$BRUNO_ROOT` 按第零步取值，是**当前项目那一个**集合，bash 里先 `cd` 过去或用 `cygpath` 转换）：
 
 ```bash
 grep -rh "  seq: " "$BRUNO_ROOT" --include="*.yml" | awk '{print $2}' | sort -n | tail -1
 ```
 
-集合为空或 grep 无输出时，从 `1` 开始。
+集合为空或 grep 无输出时，从 `1` 开始。**别的项目的集合里 seq 是多少与本项目无关**，不要跨集合取最大。
 
-文件放哪（以下目录均在 `$BRUNO_ROOT` 下）：
+文件放哪（以下目录均在**当前项目的** `$BRUNO_ROOT` 下）：
 
-- 能归入已有中文目录就放进去 —— `考勤监控/`、`资料管理/`、`退费/`、`企业微信/`
+- 能归入已有中文目录就放进去 —— 例如 pptutor-cloud 集合里的 `考勤监控/`、`资料管理/`、`退费/`、`企业微信/`；其他项目的集合按它自己已有的目录来，先看一眼再决定
 - 新开子目录时，**必须**同时建 `folder.yml`，否则 Bruno 读不到：
 
   ```yaml
@@ -280,17 +304,18 @@ grep -rh "  seq: " "$BRUNO_ROOT" --include="*.yml" | awk '{print $2}' | sort -n 
 逐条对，有一条不过就不要说完成了：
 
 - [ ] 参数粒度已由用户明确指定；未指定时已反问并**等到了答复**（没有边问边写）
+- [ ] 已确认当前项目（多项目时 cwd 判不出来就反问过），用的是**该项目自己**的源码根与 Bruno 集合
 - [ ] `$SOURCE_ROOT` / `$BRUNO_ROOT` 取自全局 `CLAUDE.md`「项目路径」段（或用户本次显式指定），**没有**凭记忆套用示例路径
-- [ ] 用到的 `{{xxx-url}}` 变量在 `$BRUNO_ROOT` 的环境文件里真实存在
-- [ ] URL 的变量前缀与 Controller 所在模块对得上（teaching / sale / system）
+- [ ] 用到的 `{{xxx-url}}` 变量在**本次项目集合**的环境文件里真实存在；匹配不到时已反问，没有自己编变量名
+- [ ] URL 的变量前缀与 Controller 所在模块对得上（pptutor-cloud 走 teaching / sale / system，其他项目走 context-path 匹配）
 - [ ] `url` 里**没有**重复拼 context-path
 - [ ] 是 RPC / Feign 接口的话已经排除，没生成文件
 - [ ] 路径参数在 `url` 里是 `:name` 形式，且在 `params` 里有 `type: path` 的对应项
 - [ ] `@RequestBody` 的 DTO 继承链**追到底**了，父类字段没漏
 - [ ] 时间字段用数字时间戳，`BigDecimal` 用字符串
 - [ ] `auth: inherit` 在（除非是第三方接口）
-- [ ] `seq` 是全集合唯一且最大的，没和现有文件撞
+- [ ] `seq` 是**本次项目集合**内唯一且最大的，没和现有文件撞，也没混入别的项目的 seq
 - [ ] 新建子目录时有配套 `folder.yml`
 - [ ] 目标路径原本不存在（或已跟用户确认过要覆盖）
 
-最后向用户报告：文件写到了哪个绝对路径、`seq` 取了多少、URL 是怎么从模块推出来的、哪些字段的示例值需要他替换成真实数据。
+最后向用户报告：**写到了哪个项目的哪个集合**、文件绝对路径、`seq` 取了多少、URL 是怎么从模块推出来的、哪些字段的示例值需要他替换成真实数据。

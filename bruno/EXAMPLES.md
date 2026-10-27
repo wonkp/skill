@@ -2,7 +2,7 @@
 
 一个真实的完整案例，覆盖本集合里最常见的两种形态（纯 query 的 GET、带继承链 DTO 的 POST）。
 
-> 下文所有源码路径都相对 `$SOURCE_ROOT`，`Bruno/` 目录指 `$BRUNO_ROOT`。两者的取值见 `SKILL.md` 第零步（全局 `CLAUDE.md` 的「项目路径」段），示例里的目录结构只是示意。
+> 下文所有源码路径都相对 `$SOURCE_ROOT`，`Bruno/` 目录指 `$BRUNO_ROOT`。**这两个值属于当前项目**：配置里可以有多对「`<项目名>项目地址` + `<项目名>Bruno地址`」，各自指向独立的 Bruno 集合，取值见 `SKILL.md` 第零步。示例里的目录结构只是示意，下面的案例全部来自 pptutor-cloud（学语）项目。
 
 ---
 
