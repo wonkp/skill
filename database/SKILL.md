@@ -45,27 +45,27 @@ description: 查询 viptutor 各环境的 MySQL 数据库。Use when the user wa
 | 研发 | 🟩 | `🟩 **研发**` |
 | 迁移 | 🟦 | `🟦 **迁移**` |
 
-> 色块用方形（🟥🟨🟩🟦）而非圆形（🔴🟡🟢🔵），因为方形色块面积大、饱和度一致，且与来源图标 🌟 的黄色不会混淆。
+> 色块用方形（🟥🟨🟩🟦）而非圆形（🔴🟡🟢🔵），因为方形色块面积大、饱和度一致，且与来源图标  的黄色不会混淆。
 
 ### 输出格式
 
 每段查询结果的**紧邻上方**必须有一行来源标记，格式固定：
 
 ```
-> 🌟 来源 ｜ 🟥 **生产** · 库 `viptutor` · 表 `trans_order`
+>  🟥 **生产** · 库 `viptutor` · 表 `trans_order`
 ```
 
 多表 / 多库时逐行列出：
 
 ```
-> 🌟 来源 ｜ 🟨 **测试** · 库 `viptutor-test` · 表 `edu_clazz`、`edu_clazz_student`
-> 🌟 来源 ｜ 🟥 **生产** · 库 `viptutor` · 表 `edu_clazz`
+>  🟨 **测试** · 库 `viptutor-test` · 表 `edu_clazz`、`edu_clazz_student`
+>  🟥 **生产** · 库 `viptutor` · 表 `edu_clazz`
 ```
 
 整个回答的**首行**再给一次汇总：
 
 ```
-**🌟 🟥 查询环境：生产 ｜ 库：viptutor ｜ 涉及表：edu_clazz、trans_order**
+** 🟥 查询环境：生产 ｜ 库：viptutor ｜ 涉及表：edu_clazz、trans_order**
 ```
 
 ### 溯源硬性要求
@@ -254,8 +254,8 @@ ORDER BY update_time DESC LIMIT 20;
 
 ## 八、输出格式总则
 
-1. **首行汇总**：`**🌟 🟥 查询环境：生产 ｜ 库：viptutor ｜ 涉及表：trans_order**`（色块按环境取）
-2. **每段结果上方**：`> 🌟 来源 ｜ 🟨 **测试** · 库 `viptutor-test` · 表 `trans_order``
+1. **首行汇总**：`** 🟥 查询环境：生产 ｜ 库：viptutor ｜ 涉及表：trans_order**`（色块按环境取）
+2. **每段结果上方**：`>  🟨 **测试** · 库 `viptutor-test` · 表 `trans_order``
 3. 结果用 Markdown 表格；行数多时先汇总再 Top N，不贴几百行明细。
 4. 多环境对比：每段独立标注，不合并成一张来源不明的表。
 5. 失败如实说明（超时 / 无权限 / 表不存在 / 库名不符），并给出可替代查法。
@@ -271,9 +271,9 @@ ORDER BY update_time DESC LIMIT 20;
 ### 正面示例
 
 ```
-**🌟 🟥 查询环境：生产 ｜ 库：viptutor ｜ 涉及表：trans_order**
+** 🟥 查询环境：生产 ｜ 库：viptutor ｜ 涉及表：trans_order**
 
-> 🌟 来源 ｜ 🟥 **生产** · 库 `viptutor` · 表 `trans_order`
+>  🟥 **生产** · 库 `viptutor` · 表 `trans_order`
 
 | 统计项 | 值 |
 |---|---|
