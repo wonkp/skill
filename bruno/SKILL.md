@@ -19,16 +19,44 @@ disable-model-invocation: true
 
 从 Java Controller 源码产出可直接在 Bruno 里发送的 `.yml` 请求文件。
 
-**两个目录要分清**：
-
-| | 路径 | 作用 |
-|---|---|---|
-| **源码仓库**（读） | 当前工作目录，通常是 `C:\IT\project\pptutor-cloud` | 找 Controller、解析 DTO |
-| **Bruno 集合**（写） | `C:\IT\project\Bruno` | 生成 `.yml`，**恒定输出到这里** |
-
-若当前目录没有 `pom.xml`（例如在 Bruno 目录里被调用），源码仓库回退到 `C:\IT\project\pptutor-cloud`。用户显式给了别的源码根目录时以用户的为准。
-
 若 `/bruno` 后面没带目标，先反问要生成哪个接口，不要自己挑一个。
+
+## 第零步：读取全局路径配置
+
+**本 skill 不写死任何绝对路径**，两个目录都从全局配置取：
+
+- 配置文件：全局 `~/.claude/CLAUDE.md`（Windows 为 `C:\Users\<用户名>\.claude\CLAUDE.md`）
+- 配置段：「项目路径（skill 通用配置）」，形如
+
+  ```markdown
+  # 项目路径（skill 通用配置）
+
+  - 源码仓库根：C:\IT\project\<源码仓库>
+  - Bruno 集合根：C:\IT\project\<Bruno 集合目录>
+  ```
+
+| 配置项 | 记作 | 作用 |
+|---|---|---|
+| **源码仓库根** | `$SOURCE_ROOT` | 找 Controller、解析 DTO（只读） |
+| **Bruno 集合根** | `$BRUNO_ROOT` | 生成 `.yml`，**恒定输出到这里**（写） |
+
+取值顺序，先到先得：
+
+1. 用户在本次 `/bruno` 里显式给了路径 → 以用户的为准，仅本次有效，**不要**改全局配置
+2. 全局 `CLAUDE.md` 里的「项目路径」段 → 用它
+3. 都没有 → **停下反问**用户要这两个路径，不要猜、不要回退到任何示例路径
+
+> 全局 `CLAUDE.md` 的内容每轮对话都在上下文里，直接取用即可，不必额外读文件。内容里找不到「项目路径」段，即视为未配置，走第 3 条。
+>
+> 后续步骤里出现 `$SOURCE_ROOT` / `$BRUNO_ROOT` 的地方，一律按这里取到的实际值展开。
+
+**源码仓库的定位**：当前工作目录若有 `pom.xml`，它就是 `$SOURCE_ROOT`；若没有（例如在 Bruno 目录里被调用），用配置里的「源码仓库根」。
+
+**在 bash 里拼路径**：配置里是 Windows 风格（`C:\...`），直接用会被反斜杠转义吃掉，先转成 POSIX 形式：
+
+```bash
+BRUNO=$(cygpath -u '<Bruno 集合根的实际值>')   # C:\IT\project\X → /c/IT/project/X
+```
 
 ## 第一步：定位接口
 
@@ -36,8 +64,8 @@ disable-model-invocation: true
 
 | 输入 | 做法 |
 |---|---|
-| **URL**（`/attendance/clazz/page`） | Grep 路径片段（去掉开头 `/`，用最长的那段搜），在 `*Controller.java` 里定位 |
-| **类名**（`AttendanceClazzController`） | Glob `**/<类名>.java` |
+| **URL**（`/attendance/clazz/page`） | 在 `$SOURCE_ROOT` 下 Grep 路径片段（去掉开头 `/`，用最长的那段搜），在 `*Controller.java` 里定位 |
+| **类名**（`AttendanceClazzController`） | 在 `$SOURCE_ROOT` 下 Glob `**/<类名>.java` |
 | **类名#方法**（`CourseController#page`） | Glob 定位类，再读该方法的注解 |
 | **粘贴的 Java 代码** | 直接读，不再检索 |
 
@@ -56,7 +84,7 @@ disable-model-invocation: true
 
 ## 第二步：确定 URL 前缀
 
-接口路径前面要挂环境变量，**不能**写死域名。映射规则按 Controller 所在的 Maven 模块推：
+接口路径前面要挂环境变量，**不能**写死域名。映射规则按 Controller 所在的 Maven 模块推（下表路径均相对 `$SOURCE_ROOT`）：
 
 | 源码模块目录 | URL 变量 | 服务 context-path |
 |---|---|---|
@@ -65,12 +93,14 @@ disable-model-invocation: true
 | `pptutor-system/system-web`、`system-api`、`system-base`、`msg-notify`、`permission-auth`、`ticket-approval`、`call-center` | `{{system-url}}` | `/system-base` |
 | `pptutor-app/app-web` | 集合里没有变量 | context-path 为 `/` |
 
+**变量名以集合里的实际值为准。** 表里是常见约定；生成前扫一眼 `$BRUNO_ROOT` 下的环境文件（`environments/*.bru`、`environments/*.yml`、`bruno.json`）确认变量名真的存在，不存在就说明该服务在集合里还没有对应变量，按 `app-web` 那一行的方式处理并告知用户。
+
 **推导规则**：子模块（`*-research` / `*-common` / `msg-notify` 等）本身不启动服务，它们被同域的 `*-web` 依赖，所以 URL 变量取那个 `*-web` 的。环境变量值已经把 context-path 包含在内了 —— 例如测试环境 `teaching-url` = `https://test-api.mathplore.com/teaching-web`，所以 url 写成 `"{{teaching-url}}/attendance/clazz/page"` 就行，**不要再拼一次 `/teaching-web`**。
 
 > **按 Maven 模块判，不要按包名判。** 包路径里的业务域名词会骗人：
 >
 > ```
-> pptutor-teaching/teaching-research/.../adapter/sale/controller/HandoverController.java
+> $SOURCE_ROOT/pptutor-teaching/teaching-research/.../adapter/sale/controller/HandoverController.java
 > @RequestMapping("/handover")
 > ```
 >
@@ -79,7 +109,7 @@ disable-model-invocation: true
 拿不准 `*-web` 是不是真的依赖了那个子模块，读 `*-web/pom.xml` 确认：
 
 ```bash
-grep -A2 "artifactId>$MODULE" pptutor-teaching/teaching-web/pom.xml
+grep -A2 "artifactId>$MODULE" "$SOURCE_ROOT/pptutor-teaching/teaching-web/pom.xml"
 ```
 
 ## 第三步：解析参数
@@ -218,13 +248,15 @@ settings:
 
 ### seq 与落盘位置
 
-`seq` 取**整个集合当前的全局最大 seq + 1**：
+`seq` 取**整个集合当前的全局最大 seq + 1**（`$BRUNO_ROOT` 按第零步取值，bash 里先 `cd` 过去或用 `cygpath` 转换）：
 
 ```bash
-grep -rh "  seq: " /c/IT/project/Bruno --include="*.yml" | awk '{print $2}' | sort -n | tail -1
+grep -rh "  seq: " "$BRUNO_ROOT" --include="*.yml" | awk '{print $2}' | sort -n | tail -1
 ```
 
-文件放哪：
+集合为空或 grep 无输出时，从 `1` 开始。
+
+文件放哪（以下目录均在 `$BRUNO_ROOT` 下）：
 
 - 能归入已有中文目录就放进去 —— `考勤监控/`、`资料管理/`、`退费/`、`企业微信/`
 - 新开子目录时，**必须**同时建 `folder.yml`，否则 Bruno 读不到：
@@ -248,6 +280,8 @@ grep -rh "  seq: " /c/IT/project/Bruno --include="*.yml" | awk '{print $2}' | so
 逐条对，有一条不过就不要说完成了：
 
 - [ ] 参数粒度已由用户明确指定；未指定时已反问并**等到了答复**（没有边问边写）
+- [ ] `$SOURCE_ROOT` / `$BRUNO_ROOT` 取自全局 `CLAUDE.md`「项目路径」段（或用户本次显式指定），**没有**凭记忆套用示例路径
+- [ ] 用到的 `{{xxx-url}}` 变量在 `$BRUNO_ROOT` 的环境文件里真实存在
 - [ ] URL 的变量前缀与 Controller 所在模块对得上（teaching / sale / system）
 - [ ] `url` 里**没有**重复拼 context-path
 - [ ] 是 RPC / Feign 接口的话已经排除，没生成文件

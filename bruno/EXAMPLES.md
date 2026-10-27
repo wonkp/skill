@@ -2,6 +2,8 @@
 
 一个真实的完整案例，覆盖本集合里最常见的两种形态（纯 query 的 GET、带继承链 DTO 的 POST）。
 
+> 下文所有源码路径都相对 `$SOURCE_ROOT`，`Bruno/` 目录指 `$BRUNO_ROOT`。两者的取值见 `SKILL.md` 第零步（全局 `CLAUDE.md` 的「项目路径」段），示例里的目录结构只是示意。
+
 ---
 
 ## 案例 A：GET + query 参数
@@ -237,10 +239,10 @@ settings:
 
 ## 案例 D：新建子目录
 
-新开目录时必须同时建 `folder.yml`，否则 Bruno 不显示：
+新开目录时必须同时建 `folder.yml`，否则 Bruno 不显示（目录整体位于 `$BRUNO_ROOT` 下）：
 
 ```
-Bruno/
+$BRUNO_ROOT/
 ├── 课程管理/
 │   ├── folder.yml          ← 必须有
 │   └── 课程分页.yml
