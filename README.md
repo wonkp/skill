@@ -9,7 +9,7 @@
 | [`bruno/`](bruno/) | `/bruno` | 根据 Java Controller 源码（URL / 类名 / 类名#方法）生成可直接发送的 Bruno `.yml` 请求文件 | 手动 `/bruno` |
 | [`tice/`](tice/) | `/tice` | 扫描当前分支相对基线的改动，生成提测邮件（Markdown 全文，含提测内容 / 影响范围 / 测试范围 / SQL 与回滚） | 手动 `/tice` |
 | [`database/`](database/) | `database` | 只读查询 viptutor 四环境（研发 / 测试 / 迁移 / 生产）的 MySQL，强制标注数据来源 | 自动（提到查库 / 表结构 / 索引 / 慢查询等） |
-| [`log/`](log/) | `log` | 只读查询 viptutor 各服务在 Loki 上的日志，按「环境 + 服务」映射到 `job` 标签 | 自动（提到查日志 / 排查报错 / 超时） |
+| [`log/`](log/) | `log` | 只读查询 viptutor 各服务在 Loki 上的日志，按「环境 + 服务」映射到 `job` 标签，强制标注数据来源 | 自动（提到查日志 / 排查报错 / 超时） |
 | [`code-review/`](code-review/) | — | 代码审查判据知识库，供 `code-review` skill 的 Standards 轴使用 | 被引用 |
 
 ## 各 skill 说明
@@ -52,6 +52,8 @@
 
 - prod：`viptutor/viptutor-<service>`（带前缀）
 - 非 prod：`viptutor-<env>/<service>`（裸服务名）
+
+**每条结果必须标注环境色标 + namespace + 服务/job + 时间窗**，与 `database` 同一套色标：🟥 生产 / 🟨 测试 / 🟩 研发 / 🟦 迁移。首行给汇总，每段结果上方给来源行；无环境关键字时必须反问。
 
 时间参数只接受 UTC ISO 8601，不支持 `1h ago` / `now`；`limit` 上限 1000。
 
