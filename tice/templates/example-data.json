@@ -1,0 +1,77 @@
+{
+  "title": "课堂回放-转写与巡课",
+  "product": "张三",
+  "reqUrl": "https://wiki.example.com/pages/viewpage.action?pageId=123456",
+  "protoUrl": "{待补充：原型地址}",
+  "changes": [
+    ["转写接口", "新增 POST /playback/transcription/submit（按课堂提交转写）、GET /playback/transcription/status（查询各段转写状态与文本）。"],
+    ["巡课接口", "新增 POST /playback/inspection/{clazzId}（发起巡课）、GET .../status（查状态）、GET .../result（查报告）。"],
+    ["表结构", "edu_clazz_playback_record 新增 3 个转写字段与 1 个索引；新建 edu_clazz_playback_inspection 巡课表。"]
+  ],
+  "tests": [
+    ["提交转写", "对已完成回放提交转写，返回成功，转写状态变为「处理中」。"],
+    ["重复提交", "同一课堂二次提交，提示已存在进行中任务，不产生两条记录。"]
+  ],
+  "front": [
+    ["项目名称", "viptutorbackstage"],
+    ["分支名称", "feature/playback-transcription"],
+    ["项目地址", "https://gitlab.mathplore.com/viptutor/frontend/viptutorbackstage.git"],
+    ["开发人员", "李四"]
+  ],
+  "back": [
+    ["项目名称", "pptutor-cloud"],
+    ["分支名称", "feature/playback-transcription"],
+    ["项目地址", "https://gitlab.mathplore.com/viptutor/pptutor-cloud.git"],
+    ["开发人员", "王五"]
+  ],
+  "configs": [
+    {
+      "title": "【Nacos 配置】",
+      "dataId": "pptutor-teaching-prod.yml",
+      "group": "DEFAULT_GROUP",
+      "yaml": [
+        "playback:",
+        "  transcription:",
+        "    enabled: true                 # 关闭后转写功能不可用",
+        "    maxDurationSeconds: 3600     # 超过视为音频过长，转写失败",
+        "",
+        "aliyun:",
+        "  nls:",
+        "    appKey: {待补充：NLS appKey}   # 阿里云语音识别 appKey"
+      ]
+    },
+    {
+      "title": "【定时器配置】",
+      "items": [
+        ["PlaybackTranscriptionTask", "0 */1 * * * ?（每分钟）"]
+      ]
+    }
+  ],
+  "sql": [
+    "-- 升级",
+    "ALTER TABLE edu_clazz_playback_record",
+    "  ADD COLUMN transcription_status TINYINT DEFAULT 0",
+    "    COMMENT '0未转写 1成功 2处理中 3失败';",
+    "",
+    "-- 回滚",
+    "ALTER TABLE edu_clazz_playback_record",
+    "  DROP COLUMN transcription_status;"
+  ],
+  "sqlNote": "回滚会丢失已转写文本，执行前请先备份；测试环境已执行，其他环境需同步执行。",
+  "legacy": [
+    ["巡课报告并发上限未压测", "教研同时开 20 路巡课时的表现待验证，已在测试环境标记。"]
+  ],
+  "audit": {
+    "summary": "共审查 14 处改动，Standards 轴 5 项、Spec 轴 2 项；高风险 0 项、中风险 2 项，低风险 3 项已略去。",
+    "high": "无",
+    "mid": "PlaybackTranscriptionService.java:186 转写结果落库无长度校验，超长文本可能被截断。",
+    "done": "落库长度校验已修复；失败重试待修复，已列入遗留问题。"
+  },
+  "footer": {
+    "company": "成都学语教育科技有限公司",
+    "name": "史磊",
+    "title": "后端开发工程师",
+    "corpUrl": "https://work.weixin.qq.com/apph5/user/h5/corp?vcode=vcd4a29fbf8b1035ce&from=mail_card",
+    "userUrl": "https://work.weixin.qq.com/wework_admin/user/h5/qqmail_user_card/vcd4a29fbf8b1035ce?from=myprofile"
+  }
+}
