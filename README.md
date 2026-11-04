@@ -7,7 +7,7 @@
 | 目录 | 名称 | 用途 | 触发方式 |
 |---|---|---|---|
 | [`bruno/`](bruno/) | `/bruno` | 根据 Java Controller 源码（URL / 类名 / 类名#方法）生成可直接发送的 Bruno `.yml` 请求文件 | 手动 `/bruno` |
-| [`tice/`](tice/) | `/tice` | 扫描当前分支相对基线的改动，生成提测邮件（HTML 富文本，亮暗主题友好、可一键复制进企微邮箱），含提测内容 / 影响范围 / 测试范围 / SQL 与回滚 | 手动 `/tice` |
+| [`tice/`](tice/) | `/tice` | 扫描当前分支相对基线的改动，生成提测邮件（Markdown，含提测内容 / 影响范围 / 测试范围 / SQL 与回滚） | 手动 `/tice` |
 | [`database/`](database/) | `database` | 只读查询 viptutor 四环境（研发 / 测试 / 迁移 / 生产）的 MySQL，强制标注数据来源 | 自动（提到查库 / 表结构 / 索引 / 慢查询等） |
 | [`log/`](log/) | `log` | 只读查询 viptutor 各服务在 Loki 上的日志，按「环境 + 服务」映射到 `job` 标签，强制标注数据来源 | 自动（提到查日志 / 排查报错 / 超时） |
 | [`code-review/`](code-review/) | — | 代码审查判据知识库，供 `code-review` skill 的 Standards 轴使用 | 被引用 |
@@ -26,7 +26,7 @@
 
 一次问全所需信息（对比基线、需求名称、前端改动、遗留问题、是否做代码审核），拉取 `<base>...HEAD` 改动，识别 SQL / 配置 / 前端影响，套模板输出。硬性要求：SQL 必须**附回滚脚本**，提测内容与测试范围详细分条。可自动衔接 `code-review` 生成审查报告。
 
-**输出 HTML 富文本**（`templates/render.js` 生成，浏览器打开可预览亮/暗主题并一键复制全文），粘进企业微信邮箱保留标题加粗、小标题彩色、整块缩进；禁用表格与序号，正文不写死颜色以适配亮暗主题；Nacos 配置固定用 YAML 块。产出落到 `docs/submit/YYYYMMDD-提测邮件-<功能>.html`。`disable-model-invocation: true`。
+**输出 Markdown**（`templates/render.js` 生成）：章节 `## `、条目 `- **标签**：说明`、Nacos 配置固定 ` ```yaml ` 块、SQL 固定 ` ```sql ` 块（升级与回滚同块）；禁用表格与序号。产出落到 `docs/submit/YYYYMMDD-提测邮件-<功能>.md`。`disable-model-invocation: true`。
 
 - 详见 [tice/SKILL.md](tice/SKILL.md)
 
