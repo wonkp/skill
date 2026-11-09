@@ -13,7 +13,7 @@ disable-model-invocation: true
 /tice origin/dev           # 指定基线
 ```
 
-产出：`docs/submit/YYYYMMDD-提测邮件-<功能>.md`，由 `templates/render.js`（Node，无依赖）生成，字段样例见 `templates/example-data.json`。**不要手写 Markdown，用生成器**（详细格式与字段见步骤 11）。
+产出：`docs/submit/YYYYMMDD-提测邮件-<功能>.md`，由 `templates/render.js`（Node，无依赖）生成，字段样例见 `templates/example-data.json`。**不要手写 Markdown，用生成器**（详细格式与字段见步骤 11）。落盘后**用默认应用打开该文件**（见《文件落盘》）。
 
 ---
 
@@ -346,6 +346,7 @@ node <skill-dir>/templates/render.js <data.json> <output.md>
 7. 「遗留问题」是否自动生成、没有就写「无」、未修复的高风险项是否同步进了待确认；
 8. 代码审核是否只输出高风险与中风险项（低风险已略去）、未修复的高风险问题是否同步进了「遗留问题」；
 9. **产出校验**：`render.js` 是否打印 `sections=8 table-rows=0`（不符必须改）；章节顺序是否为「…SQL 脚本 → 遗留问题 → 代码审核」；末尾是否以「代码审核」结束、无页脚/签名/分隔线。
+10. **落盘后是否已用默认应用打开**了该 `.md`（见《文件落盘》），不是只把路径贴在对话里就结束。
 
 把待确认项集中在邮件下方用一个短列表列出（「以下信息请你确认：…」），不要散落在正文里。
 
@@ -356,3 +357,18 @@ node <skill-dir>/templates/render.js <data.json> <output.md>
 `docs/submit/YYYYMMDD-提测邮件-<功能简述>.md`，日期取当天，功能简述用需求名称（去掉空格与 `/`）；`docs/submit/` 不存在时先创建。
 
 落盘前把占位符清掉或保留并明确提示；同时仍把全文贴到对话里。
+
+### 落盘后立即用默认应用打开
+
+写文件成功后，**紧接着用系统默认应用打开这份 `.md`**，不等待用户开口。Windows（Git Bash）下用：
+
+```bash
+cmd //c start "" "$(cygpath -w "$PWD/docs/submit/YYYYMMDD-提测邮件-<功能简述>.md")"
+```
+
+- `cmd //c`（两个斜杠）是 Git Bash 下调用 Windows `cmd` 的正确写法；
+- `start` 后必须紧跟一对空引号 `""`，第一个参数是窗口标题，否则含空格路径会被当标题；
+- 路径用 `cygpath -w` 转成反斜杠绝对路径再交给 `cmd`，避免中文与空格路径失败；
+- 非 Windows 环境改用 `open <文件>`（macOS）或 `xdg-open <文件>`（Linux）。
+
+文件只有在前一步确认写入成功（命令无报错）时才打开；打开失败不阻塞流程，告知用户报错信息并给出文件路径即可。

@@ -26,7 +26,7 @@
 
 一次问全所需信息（对比基线、需求名称、前端改动、遗留问题、是否做代码审核），拉取 `<base>...HEAD` 改动，识别 SQL / 配置 / 前端影响，套模板输出。硬性要求：SQL 必须**附回滚脚本**，提测内容与测试范围详细分条。可自动衔接 `code-review` 生成审查报告。
 
-**输出 Markdown**（`templates/render.js` 生成）：章节 `## `、条目 `- **标签**：说明`、Nacos 配置固定 ` ```yaml ` 块、SQL 固定 ` ```sql ` 块（升级与回滚同块）；禁用表格与序号。产出落到 `docs/submit/YYYYMMDD-提测邮件-<功能>.md`。`disable-model-invocation: true`。
+**输出 Markdown**（`templates/render.js` 生成）：章节 `## `、条目 `- **标签**：说明`、Nacos 配置固定 ` ```yaml ` 块、SQL 固定 ` ```sql ` 块（升级与回滚同块）；禁用表格与序号。产出落到 `docs/submit/YYYYMMDD-提测邮件-<功能>.md`，**落盘后自动用默认应用打开该文件**。`disable-model-invocation: true`。
 
 - 详见 [tice/SKILL.md](tice/SKILL.md)
 
